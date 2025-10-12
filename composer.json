@@ -1,0 +1,223 @@
+<?php
+// FILE: /invoice-tool/generate_pdf.php
+
+// Ensure Composer autoloader is available
+// Assuming this file is in /invoice-tool/ and vendor is also in /invoice-tool/
+require_once __DIR__ . '/vendor/autoload.php';
+
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+// --- Security Check (Simple CSRF token / Referrer check) ---
+// IMPORTANT: For production, implement a robust CSRF protection mechanism.
+// This is a basic example. A better approach would be:
+// 1. Generate a unique token server-side (e.g., in a session) when index.html is loaded.
+// 2. Embed this token in a hidden input or send it to the frontend via an API.
+// 3. Frontend sends the token with the PDF generation request.
+// 4. Server verifies the received token against the session token.
+
+// Check for X-CSRF-Token header (sent from JavaScript)
+$expectedCsrfToken = 'my_secret_csrf_token_123'; // Must match the one in script.js
+$receivedCsrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method Not Allowed']);
+    exit;
+}
+
+if ($receivedCsrfToken !== $expectedCsrfToken) {
+    http_response_code(403);
+    echo json_encode(['error' => 'CSRF Token Mismatch or Missing']);
+    error_log("CSRF Warning: Token mismatch or missing. Expected: {$expectedCsrfToken}, Received: {$receivedCsrfToken}");
+    exit;
+}
+
+// Optionally, check referrer for added (but weaker) security
+// if (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) === false) {
+//     http_response_code(403);
+//     echo json_encode(['error' => 'Referrer check failed.']);
+//     exit;
+// }
+
+
+// --- Input Processing ---
+$input = file_get_contents('php://input');
+$data = json_decode($input, true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid JSON input.']);
+    exit;
+}
+
+$invoice = $data['invoice'] ?? [];
+$brand = $data['brand'] ?? [];
+
+// Basic validation
+if (empty($invoice)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invoice data is missing.']);
+    exit;
+}
+
+// --- HTML Generation for PDF ---
+$companyName = htmlspecialchars($brand['companyName'] ?? 'Your Company Name');
+$companyAddress = nl2br(htmlspecialchars($brand['companyAddress'] ?? 'Your Company Address'));
+$logoSrc = htmlspecialchars($brand['logoBase64'] ?? $brand['logoUrl'] ?? '');
+$accentColor = htmlspecialchars($brand['accentColor'] ?? '#007bff');
+
+$invoiceNumber = htmlspecialchars($invoice['invoiceNumber'] ?? 'N/A');
+$invoiceDate = htmlspecialchars($invoice['invoiceDate'] ?? date('Y-m-d'));
+$clientName = htmlspecialchars($invoice['clientName'] ?? 'N/A');
+$clientAddress = nl2br(htmlspecialchars($invoice['clientAddress'] ?? 'N/A'));
+$notes = nl2br(htmlspecialchars($invoice['notes'] ?? ''));
+
+$itemsHtml = '';
+foreach (($invoice['items'] ?? []) as $item) {
+    $itemName = htmlspecialchars($item['name'] ?? '');
+    $itemDescription = htmlspecialchars($item['description'] ?? '');
+    $itemQty = htmlspecialchars($item['qty'] ?? '');
+    $itemPrice = number_format($item['price'] ?? 0, 2);
+    $itemTotal = number_format($item['total'] ?? 0, 2);
+    $itemsHtml .= "
+        <tr>
+            <td>{$itemName}</td>
+            <td>{$itemDescription}</td>
+            <td class='qty'>{$itemQty}</td>
+            <td class='price'>{$itemPrice}</td>
+            <td class='total'>{$itemTotal}</td>
+        </tr>
+    ";
+}
+
+$subtotal = number_format($invoice['subtotal'] ?? 0, 2);
+$taxRate = htmlspecialchars($invoice['taxRate'] ?? 0);
+$taxAmount = number_format($invoice['taxAmount'] ?? 0, 2);
+$discountRate = htmlspecialchars($invoice['discountRate'] ?? 0);
+$discountAmount = number_format($invoice['discountAmount'] ?? 0, 2);
+$total = number_format($invoice['total'] ?? 0, 2);
+
+$html = <<<EOD
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invoice {$invoiceNumber}</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 0; padding: 0; font-size: 10pt; }
+        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); font-size: 14px; line-height: 24px; color: #555; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header .logo { max-width: 150px; max-height: 80px; object-fit: contain; vertical-align: middle; }
+        .header .company-info { text-align: right; }
+        .header .company-info div { margin-bottom: 5px; }
+        h1 { color: {$accentColor}; font-size: 28px; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
+        table td, table th { padding: 8px; vertical-align: top; }
+        .details-table th, .details-table td { border-bottom: 1px solid #eee; }
+        .details-table tr.heading th { background: {$accentColor}; color: #fff; border-bottom: 1px solid #ddd; font-weight: bold; }
+        .details-table tr.item td { border-bottom: 1px solid #eee; }
+        .details-table tr.item.last td { border-bottom: none; }
+        .details-table .qty, .details-table .price, .details-table .total { text-align: right; }
+        .totals-table { width: 40%; float: right; margin-top: 20px; }
+        .totals-table tr td { border-bottom: 1px solid #eee; text-align: right; padding: 5px 0; }
+        .totals-table tr.total-row td { border-top: 2px solid #eee; font-weight: bold; font-size: 16px; color: {$accentColor}; }
+        .notes { margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
+        .invoice-meta { margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .invoice-meta div { width: 48%; }
+        .client-info { margin-bottom: 20px; border: 1px solid #eee; padding: 10px; background: #f9f9f9; }
+        .clearfix::after { content: ""; display: table; clear: both; }
+    </style>
+</head>
+<body>
+    <div class="invoice-box">
+        <table cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="width: 50%;">
+                    <!-- Company Logo and Name -->
+                    <div style="margin-bottom: 10px;">
+                        {$logoSrc ? '<img src="' . $logoSrc . '" class="logo" alt="Company Logo">' : ''}
+                    </div>
+                    <div style="font-weight: bold; font-size: 16px; color: {$accentColor};">{$companyName}</div>
+                    <div>{$companyAddress}</div>
+                </td>
+                <td style="width: 50%; text-align: right;">
+                    <!-- Invoice Details -->
+                    Invoice #: <strong>{$invoiceNumber}</strong><br>
+                    Date: <strong>{$invoiceDate}</strong><br>
+                </td>
+            </tr>
+        </table>
+
+        <div style="margin-top: 30px;">
+            <strong>Bill To:</strong>
+            <div class="client-info">
+                <strong>{$clientName}</strong><br>
+                {$clientAddress}
+            </div>
+        </div>
+
+        <h1 style="text-align: left; font-size: 24px;">Invoice Details</h1>
+
+        <table class="details-table" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+            <tr class="heading">
+                <th>Item</th>
+                <th>Description</th>
+                <th class="qty">Qty</th>
+                <th class="price">Unit Price</th>
+                <th class="total">Amount</th>
+            </tr>
+            {$itemsHtml}
+        </table>
+
+        <div class="clearfix">
+            <table class="totals-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td>Subtotal:</td>
+                    <td>{$subtotal}</td>
+                </tr>
+                <tr>
+                    <td>Tax ({$taxRate}%):</td>
+                    <td>{$taxAmount}</td>
+                </tr>
+                <tr>
+                    <td>Discount ({$discountRate}%):</td>
+                    <td>{$discountAmount}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>Total:</td>
+                    <td>{$total}</td>
+                </tr>
+            </table>
+        </div>
+        <div class="clearfix"></div>
+
+        <div class="notes">
+            <strong>Notes:</strong><br>
+            {$notes}
+        </div>
+    </div>
+</body>
+</html>
+EOD;
+
+// --- Dompdf Configuration and Generation ---
+$options = new Options();
+$options->set('isHtml5ParserEnabled', true);
+$options->set('isRemoteEnabled', true); // Allow loading remote images (if logo is a URL)
+$options->set('defaultFont', 'Helvetica');
+
+$dompdf = new Dompdf($options);
+$dompdf->loadHtml($html);
+
+// Set paper size and orientation (e.g., A4 portrait)
+$dompdf->setPaper('A4', 'portrait');
+
+// Render the HTML as PDF
+$dompdf->render();
+
+// Output the generated PDF to Browser
+$filename = "invoice_{$invoiceNumber}_" . date('YmdHis') . ".pdf";
+$dompdf->stream($filename, ["Attachment" => true]);
+
+exit;

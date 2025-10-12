@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Invoice Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="sticky-header">
+        <div class="container header-content">
+            <img id="header-logo" src="" alt="Company Logo" class="header-logo" style="display:none;">
+            <h1 id="header-title">Invoice Generator</h1>
+            <div class="header-actions">
+                <button id="mode-toggle" class="btn small-btn">☀️</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container main-content">
+        <aside class="sidebar">
+            <h2>Settings</h2>
+            <div class="settings-section">
+                <h3>Brand Customization</h3>
+                <label for="company-name">Company Name:</label>
+                <input type="text" id="company-name" placeholder="Your Company Name">
+
+                <label for="company-address">Company Address:</label>
+                <textarea id="company-address" placeholder="Your Company Address"></textarea>
+
+                <label for="logo-upload">Logo URL:</label>
+                <input type="text" id="logo-url" placeholder="http://example.com/logo.png">
+                <input type="file" id="logo-upload" accept="image/*">
+                <small>Or upload an image</small>
+                <div class="logo-preview-container">
+                    <img id="logo-preview" src="" alt="Logo Preview" style="display: none;">
+                </div>
+
+                <label for="accent-color">Accent Color:</label>
+                <input type="color" id="accent-color" value="#007bff">
+                <button id="save-brand-settings" class="btn">Save Brand Settings</button>
+            </div>
+
+            <div class="settings-section">
+                <h3>Invoice Actions</h3>
+                <button id="save-draft" class="btn secondary-btn">Save Draft</button>
+                <button id="load-draft" class="btn secondary-btn">Load Draft</button>
+                <button id="clear-invoice" class="btn danger-btn">Clear Invoice</button>
+                <div id="confirmation-message" class="confirmation-message" style="display:none;"></div>
+            </div>
+        </aside>
+
+        <main class="invoice-builder-section">
+            <h2>Invoice Details</h2>
+
+            <div class="invoice-meta grid-2">
+                <div>
+                    <label for="invoice-number">Invoice Number:</label>
+                    <input type="text" id="invoice-number" value="INV-001">
+                </div>
+                <div>
+                    <label for="invoice-date">Invoice Date:</label>
+                    <input type="date" id="invoice-date">
+                </div>
+            </div>
+
+            <label for="client-name">Client Name:</label>
+            <input type="text" id="client-name" placeholder="Client's Name or Company">
+
+            <label for="client-address">Client Address:</label>
+            <textarea id="client-address" placeholder="Client's Address"></textarea>
+
+            <h3>Invoice Items</h3>
+            <div id="invoice-items">
+                <!-- Invoice items will be added here by JS -->
+                <div class="invoice-item-row grid-item-row">
+                    <input type="text" class="item-name" placeholder="Item Name">
+                    <input type="text" class="item-description" placeholder="Description">
+                    <input type="number" class="item-qty" value="1" min="1">
+                    <input type="number" class="item-price" value="0.00" min="0" step="0.01">
+                    <span class="item-total">0.00</span>
+                    <button class="remove-item-btn danger-btn small-btn">X</button>
+                </div>
+            </div>
+            <button id="add-item" class="btn secondary-btn small-btn">Add Item</button>
+
+            <div class="invoice-summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span id="subtotal-amount">0.00</span>
+                </div>
+                <div class="summary-row">
+                    <label for="tax-rate">Tax (%):</label>
+                    <input type="number" id="tax-rate" value="0" min="0" step="0.1">
+                    <span id="tax-amount">0.00</span>
+                </div>
+                <div class="summary-row">
+                    <label for="discount-rate">Discount (%):</label>
+                    <input type="number" id="discount-rate" value="0" min="0" step="0.1">
+                    <span id="discount-amount">0.00</span>
+                </div>
+                <div class="summary-row total-row">
+                    <span>Total:</span>
+                    <span id="total-amount">0.00</span>
+                </div>
+            </div>
+
+            <label for="invoice-notes">Notes:</label>
+            <textarea id="invoice-notes" placeholder="Any additional notes for the client..."></textarea>
+
+            <div class="invoice-actions-bottom">
+                <button id="download-pdf" class="btn primary-btn">Download PDF</button>
+                <button id="print-invoice" class="btn secondary-btn">Print Invoice</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

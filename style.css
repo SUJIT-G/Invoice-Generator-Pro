@@ -433,8 +433,14 @@ small {
     color: #721c24;
     border: 1px solid #f5c6cb;
 }
+.confirmation-message {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
 .confirmation-message.show {
     opacity: 1;
+    pointer-events: auto;
 }
 
 /* Print Styles */

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pro Invoice Generator</title>
     <link rel="stylesheet" href="style.css">
+    <script 
+  src="https://www.paypal.com/sdk/js?client-id=BAAcf1kWjy3evwliNOOBGdnzoNyt081tt7QSQd28W91uuR4MaeCHhd2lSRJv9bXmL0krOvo8LgDSDCyRTk&components=hosted-buttons&disable-funding=venmo&currency=USD">
+    </script>
 </head>
 <body>
     <header class="sticky-header">
@@ -40,6 +43,12 @@
                 <input type="color" id="accent-color" value="#007bff">
                 <button id="save-brand-settings" class="btn">Save Brand Settings</button>
             </div>
+            <div id="paypal-container-FE6XWBG47CBDG"></div>
+<script>
+  paypal.HostedButtons({
+    hostedButtonId: "FE6XWBG47CBDG",
+  }).render("#paypal-container-FE6XWBG47CBDG")
+</script>
 
             <div class="settings-section">
                 <h3>Invoice Actions</h3>
@@ -119,3 +128,4 @@
 </body>
 
 </html>
+
